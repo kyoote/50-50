@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101b21">
+  <meta name="description" content="地図上の統計量を左右50:50に分けるゲーム。">
+  <title>50:50</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="data/bundle.js"></script>
+  <script defer src="game.js"></script>
+  <script defer src="globe.js"></script>
+</head>
+<body>
+  <header class="header">
+    <button id="home-button" class="brand" aria-label="50:50 トップへ">50<span>:</span>50</button>
+    <nav><button id="how-button" class="text-button">遊び方</button><button id="data-button" class="text-button">データ</button></nav>
+  </header>
+  <main>
+    <section id="home-screen" class="screen">
+      <div id="hero-map" class="hero-map"><canvas id="globe" tabindex="0" role="img" aria-label="地球。ドラッグまたは矢印キーで視点を移動できます。"></canvas><button id="orbit-toggle" class="text-button" aria-label="地球の自動周回を停止" aria-pressed="false">Ⅱ</button></div>
+      <div class="start-panel"><h1 class="title-logo">50<span>:</span>50</h1><div class="mode-picker" role="group" aria-label="出題エリア"><button data-mode="japan" aria-pressed="false">日本</button><button data-mode="world" aria-pressed="false">世界</button><button data-mode="random" class="selected" aria-pressed="true">ランダム</button></div><button id="start-button" class="primary">はじめる <span>→</span></button><p class="session-note">全5問</p><p id="pool-note" class="pool-note"></p></div>
+    </section>
+    <section id="game-screen" class="screen" hidden>
+      <div class="round-top"><div class="round-count"><strong id="round-number">01</strong><span>/ 05</span></div><ol id="progress" class="progress" aria-label="ラウンド進捗"></ol><div class="running-score"><span>合計</span><strong id="running-score">0</strong><small>点</small></div></div>
+      <div class="question-head"><div><p id="question-kicker" class="eyebrow"></p><h1 id="question-title"></h1></div><div class="direction"><p id="direction-text"></p></div></div>
+      <div class="map-frame"><div class="map-corner"><span id="map-region"></span><span id="map-year"></span></div><div id="game-map" class="game-map" role="img" aria-label="回答用地図。下のスライダーでも回答できます。"></div><div class="map-bottom"><span id="map-instruction">地図をクリック、またはドラッグして線を動かす</span><span class="map-credit">Natural Earth / geoBoundaries</span></div></div>
+      <div id="answer-controls" class="answer-controls"><div class="coordinate"><span id="coordinate-label">経度</span><output id="coordinate-value" for="answer-slider"></output></div><div class="slider-group"><button id="minus-button" class="step-button" aria-label="線を左へ0.05度移動">−</button><input id="answer-slider" type="range" step="0.01" aria-label="回答の経度"><button id="plus-button" class="step-button" aria-label="線を右へ0.05度移動">＋</button></div><button id="submit-button" class="primary">ここで分ける <span>→</span></button></div>
+      <section id="round-result" class="round-result" aria-live="polite" hidden><div class="ratio-block"><p id="result-label" class="eyebrow"></p><div id="result-ratio" class="result-ratio"></div><div class="ratio-bar"><span id="ratio-fill"></span><i></i></div><div class="ratio-labels"><span id="first-side"></span><span id="second-side"></span></div></div><div class="round-stats"><div><span>ERROR</span><strong id="result-error"></strong><small>ポイント差</small></div><div><span>SCORE</span><strong id="result-score"></strong><small>/ 1,000 pts</small></div><div class="star-block"><span id="result-stars" class="stars"></span><small id="result-star-count"></small></div></div><button id="next-button" class="primary">次の問題へ <span>→</span></button><p id="line-summary" class="line-summary"></p></section>
+      <p id="question-source" class="question-source"></p>
+    </section>
+    <section id="final-screen" class="screen final-screen" hidden><h1>結果</h1><div class="final-score"><span>合計</span><strong id="final-score"></strong><small>/ 5,000</small></div><div id="final-stars" class="stars"></div><div class="final-metrics"><div><span>平均誤差</span><strong id="average-error"></strong></div><div><span>平均 ★</span><strong id="average-stars"></strong></div><div><span>最終評価</span><strong id="final-rating"></strong></div></div><div id="round-history" class="round-history"></div><div class="final-actions"><button id="replay-button" class="primary">もう一度 <span>→</span></button><button id="choose-button" class="secondary">エリアを選び直す</button></div></section>
+    <div id="load-error" class="load-error" hidden><h1>データを読み込めませんでした</h1><p>フォルダー全体を展開し、data/bundle.js がある状態で index.html を開いてください。</p></div>
+  </main>
+  <dialog id="info-dialog"><div class="dialog-top"><span id="dialog-title" class="eyebrow"></span><button id="close-dialog" class="close-button" aria-label="閉じる">×</button></div><div id="dialog-content"></div></dialog>
+  <noscript>このゲームにはJavaScriptが必要です。ブラウザーでJavaScriptを有効にしてください。</noscript>
+</body>
+</html>
