@@ -1,6 +1,6 @@
 # 50:50 収録データ
 
-2026-10-07 集計・検証完了。15データセットを収録。詳細な結果は validation.json と README.md を参照。
+2026-10-07 集計・検証完了。33データセットを収録。詳細な結果は validation.json と README.md を参照。
 
 世界人口はWorldPopを採用。JRC GHS-WUP-POPも予備として取得したが、ゲームには使用していない。
 
@@ -24,5 +24,7 @@
 
 世界の陸地面積は南極を含み、陸水境界は原図に従う。総面積と5か所の直接切断面積を累積分布と照合。
 
-追加：ESA WorldCover class 20低木地・90草本湿地。GPCP 2025年6〜8月、1・2・12月の各合計。海洋はNatural Earth陸地の補集合で湖等も含む。各指標の出典・処理・検証はbundleとvalidation.jsonに収録。
+追加：ESA WorldCover class 20低木地・90草本湿地。GPCP 2025年の月別12・四半期別4・半期別2・年間1の計19期間。海洋はNatural Earth陸地の補集合で湖等も含む。各指標の出典・処理・検証はbundleとvalidation.jsonに収録。
 
+
+世界建物被覆：GHS-BUILT-S R2023A、2020年、30秒、JRC、CC BY 4.0。各セルのbuilt-up surface（m²）を全量合計。日本裸地・岩場：ESA WorldCover 2021 class 60、既存日本マスクと球面セル面積で集計。

@@ -51,7 +51,14 @@
       if (used.size === pool.length) used.clear();
       const previous = result[result.length - 1];
       const candidates = pool.filter(q => !used.has(q.key));
-      const ranked = candidates.map(q => ({q, weight: rng() * 1.4 + (previous ?
+      const groups = new Map();
+      for (const q of candidates) {
+        const key = q.data.region + ':' + (q.data.metric.startsWith('rain') ? 'rain' : q.data.metric);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(q);
+      }
+      const choices = [...groups.values()].map(group => group[Math.floor(rng() * group.length)]);
+      const ranked = choices.map(q => ({q, weight: rng() * 1.4 + (previous ?
         (q.data.metric.startsWith('rain') && previous.data.metric.startsWith('rain') ? 0 : q.data.metric !== previous.data.metric ? 3 : 0) +
         (mode === 'random' && q.data.region !== previous.data.region ? 2 : 0) : 0)}));
       ranked.sort((a, b) => b.weight - a.weight);
@@ -80,8 +87,9 @@
     return;
   }
   const regionNames = {world: '世界', japan: '日本'};
-  const metricNames = {shrubland: '低木地', wetland: '湿地', ocean: '海洋', rainwarm: '6〜8月の降水', raincold: '1・2・12月の降水', population: '人口', rainfall: '降水', forest: '樹木被覆', cropland: '農地', builtup: '市街地', grassland: '草地', water: '水面', land: '陸地'};
+  const metricNames = {bare: '裸地・岩場', building: '建物被覆', shrubland: '低木地', wetland: '湿地', ocean: '海洋', population: '人口', rainfall: '降水', forest: '樹木被覆', cropland: '農地', builtup: '市街地', grassland: '草地', water: '水面', land: '陸地'};
   const state = {mode: 'random', questions: [], results: [], index: 0, value: 0, answered: false, screen: 'home-screen', view: null};
+  for (const data of payload.datasets) if (data.metric.startsWith('rainperiod_')) metricNames[data.metric] = data.metadata.name.replace('に降る水の総量', 'の降水');
   const namespace = 'http://www.w3.org/2000/svg';
   const paths = new Map();
   function svgElement(name, attrs, text) {
@@ -171,7 +179,7 @@
   }
   function updatePool() {
     const data = payload.datasets.filter(d => state.mode === 'random' || d.region === state.mode);
-    const names = [...new Set(data.map(d => metricNames[d.metric]))].join('・');
+    const names = [...new Set(data.map(d => d.metric.startsWith('rain') ? '降水' : metricNames[d.metric]))].join('・');
     $('pool-note').textContent = names;
   }
   function startGame() {
@@ -208,7 +216,7 @@
     $('answer-controls').hidden = false; $('round-result').hidden = true;
     $('round-result').classList.remove('perfect');
     $('map-instruction').textContent = '地図をクリック、またはドラッグして線を動かす';
-    const caveat = q.data.metric.startsWith('rain') ? (q.data.region === 'world' ? '海洋・極域を含む。暫定値。' : '日本の陸域・有効セルのみ。') : q.data.metric === 'population' ? '推計人口。' : q.data.metric === 'ocean' ? '原図の水域。湖なども含む。' : q.data.metric === 'land' ? '南極を含む。原図の海岸線・陸水表現に基づく。' : '日本境界内の有効セルのみ。';
+    const caveat = q.data.metric.startsWith('rain') ? (q.data.region === 'world' ? '海洋・極域を含む。暫定値。' : '日本の陸域・有効セルのみ。') : q.data.metric === 'population' ? '推計人口。' : q.data.metric === 'building' ? '建物の地表被覆面積。2020年推計。' : q.data.metric === 'ocean' ? '原図の水域。湖なども含む。' : q.data.metric === 'land' ? '南極を含む。原図の海岸線・陸水表現に基づく。' : '日本境界内の有効セルのみ。';
     $('question-source').textContent = `${q.data.metadata.dataset} · ${q.data.metadata.year} · ${q.data.metadata.resolution}｜${caveat} 詳細はデータ`;
     updateLine();
   }
@@ -287,7 +295,7 @@
     const content = $('dialog-content'); content.replaceChildren();
     $('dialog-title').textContent = kind === 'data' ? '使用データ' : '遊び方';
     if (kind === 'how') {
-      content.innerHTML = '<h2>遊び方</h2><ol><li>エリアを選びます。1ゲーム5問です。</li><li>経度問題は左右、緯度問題は上下の量が50:50になるように線を動かします。</li><li>「ここで分ける」で確定すると、実際の割合と正解が表示されます。</li></ol><p>世界地図の中心は毎問変わります。画面の左端から回答線までと、回答線から右端までの量で採点します。正解の経度も地図の中心に応じて変わります。日本地図は固定表示で、経度と緯度をランダムに出題します。</p><p>クリック・タップ・ドラッグ、スライダーで操作できます。±は0.05°、矢印キーは0.01°ずつ移動します。</p><h3>得点</h3><p>1問1,000点、合計5,000点。50%からの誤差が小さいほど高得点です。誤差0.5ポイント以下で★10、10ポイントで★5。最終評価は平均星数の四捨五入です。</p><h3>出題データ</h3><p>世界：人口・年間降水・6〜8月降水・1・2・12月降水・陸地・海洋。日本：人口・樹木被覆・農地・市街地・草地・水面・低木地・湿地・降水。月別降水はすべて2025年の指定月の合計です。指標は繰り返すことがあります。世界の降水は海洋・極域を含み、日本の降水は陸域のみです。</p>';
+      content.innerHTML = '<h2>遊び方</h2><ol><li>エリアを選びます。1ゲーム5問です。</li><li>経度問題は左右、緯度問題は上下の量が50:50になるように線を動かします。</li><li>「ここで分ける」で確定すると、実際の割合と正解が表示されます。</li></ol><p>世界地図の中心は毎問変わります。画面の左端から回答線までと、回答線から右端までの量で採点します。正解の経度も地図の中心に応じて変わります。日本地図は固定表示で、経度と緯度をランダムに出題します。</p><p>クリック・タップ・ドラッグ、スライダーで操作できます。±は0.05°、矢印キーは0.01°ずつ移動します。</p><h3>得点</h3><p>1問1,000点、合計5,000点。50%からの誤差が小さいほど高得点です。誤差0.5ポイント以下で★10、10ポイントで★5。最終評価は平均星数の四捨五入です。</p><h3>出題データ</h3><p>世界：人口・建物被覆・陸地・海洋・降水。降水は月別12・四半期別4・半期別2・年間1の19期間。日本：人口・樹木被覆・農地・市街地・草地・水面・低木地・湿地・裸地・岩場・降水。月別降水はすべて2025年の指定月の合計です。指標は繰り返すことがあります。世界の降水は海洋・極域を含み、日本の降水は陸域のみです。</p>';
     } else {
       const title = document.createElement('h2'); title.textContent = '使用データ'; content.append(title);
       const intro = document.createElement('p'); intro.textContent = '公開された実グリッドを集計しています。世界の陸地面積は実地図ポリゴンから計算しています。ゲーム独自の架空分布・首都への置き換え・欠損値の推測補完は使いません。細かな回答操作は元データの解像度を上げるものではありません。'; content.append(intro);
@@ -360,6 +368,8 @@
   });
   updatePool();
 })(typeof window !== 'undefined' ? window : globalThis);
+
+
 
 
 

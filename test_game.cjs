@@ -9,12 +9,25 @@ vm.runInNewContext(fs.readFileSync(path.join(base, 'data/bundle.js'), 'utf8'), c
 const datasets = context.window.GAME_DATA.datasets;
 let assertions = 0;
 function check(condition, message) {assert.ok(condition, message); assertions++;}
-for (const id of ['builtup_japan', 'grassland_japan', 'water_japan', 'land_world', 'shrubland_japan', 'wetland_japan', 'ocean_world', 'rainwarm_world', 'raincold_world']) {
+for (const id of ['bare_japan', 'building_world', 'builtup_japan', 'grassland_japan', 'water_japan', 'land_world', 'shrubland_japan', 'wetland_japan', 'ocean_world', 'rainperiod_01_01_world', 'rainperiod_03_01_world', 'rainperiod_06_01_world']) {
   check(datasets.some(data => data.id === id), 'new dataset included: ' + id);
 }
-const cover = datasets.filter(data => ['builtup','grassland','water','forest','cropland','shrubland','wetland'].includes(data.metric));
+const cover = datasets.filter(data => ['builtup','grassland','water','forest','cropland','shrubland','wetland','bare'].includes(data.metric));
 check(cover.reduce((sum, data) => sum + data.total, 0) <= cover[0].validation.valid_area_km2 * 1e6, 'exclusive land classes within valid area');
 const land = datasets.find(data => data.id === 'land_world');
+const annual = datasets.find(data => data.id === 'rainfall_world');
+const periods = datasets.filter(data => data.metric.startsWith('rainperiod_'));
+check(periods.length === 18, '18 periods plus annual');
+check(!datasets.some(data => ['rainwarm','raincold'].includes(data.metric)), 'old periods excluded');
+for (const length of [1,3,6]) {
+  const group = periods.filter(data => data.validation.months.length === length);
+  check(group.length === 12 / length, 'period count');
+  check(group.flatMap(data => data.validation.months).sort((a,b)=>a-b).join(',') === '1,2,3,4,5,6,7,8,9,10,11,12', 'each month once');
+  for (const axis of ['longitude','latitude']) for (let i=0;i<annual[axis].distribution.length;i++) {
+    const sum = group.reduce((total,data)=>total+data[axis].distribution[i],0);
+    check(Math.abs(sum-annual[axis].distribution[i]) < Math.max(1,annual[axis].distribution[i]*1e-10), 'period sums equal annual distribution');
+  }
+}
 for (const cut of land.validation.cuts) {
   check(Math.abs(fractionAt(land.longitude, cut.longitude) - cut.direct_area / land.total) < 1e-7, 'land direct polygon cut');
 }
@@ -56,6 +69,15 @@ for (const mode of ['japan', 'world', 'random']) {
   }
 }
 const uniform = {edges: [0, 100], cumulative: [0, 100]};
+let rainFirst = 0;
+for (let seed=1;seed<=1000;seed++) {
+  let number=seed;
+  const rng=()=>((number=(number*1664525+1013904223)>>>0)/4294967296);
+  const questions=makeQuestions(datasets,'world',rng);
+  if (questions[0].data.metric.startsWith('rain')) rainFirst++;
+  check(questions.filter(q=>q.data.metric.startsWith('rain')).length<=3, 'rain periods do not dominate rounds');
+}
+check(rainFirst>100 && rainFirst<300, 'rain family has one share despite 19 periods');
 let lastScore = 1001, lastStars = 11;
 for (let error = 0; error <= 50; error += .01) {
   const result = evaluate(uniform, 50 + error);
@@ -94,4 +116,5 @@ for (const data of datasets.filter(d => d.region === 'world')) {
 }
 check(wrapLongitude(190) === -170 && wrapLongitude(-190) === 170, 'date line wrapping');
 console.log(`PASS: ${assertions} assertions; ${datasets.length} real datasets; 300 complete question schedules.`);
+
 

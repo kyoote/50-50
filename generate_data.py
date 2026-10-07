@@ -8,11 +8,13 @@ import math
 import os
 from pathlib import Path
 import sys
+import zipfile
+import shutil
 
 parser = argparse.ArgumentParser(description='50:50 real-grid aggregation; no synthetic data.')
 parser.add_argument('--raw', type=Path, required=True)
 parser.add_argument('--deps', type=Path)
-parser.add_argument('--stage', choices=['maps', 'rain', 'cover', 'land', 'ocean', 'seasons', 'population', 'bundle', 'all'], default='all')
+parser.add_argument('--stage', choices=['maps', 'rain', 'cover', 'land', 'ocean', 'seasons', 'built', 'population', 'bundle', 'all'], default='all')
 parser.add_argument('--workers', type=int, default=4)
 parser.add_argument('--region', choices=['world', 'japan', 'all'], default='all')
 args = parser.parse_args()
@@ -34,7 +36,7 @@ OUT.mkdir(exist_ok=True)
 RAW = args.raw.resolve()
 WORKERS = max(1, min(args.workers, max(1, (os.cpu_count() or 2) - 1), 4))
 RADIUS = 6371007.1809
-COVER = {'forest': (10, '樹木被覆面積'), 'cropland': (40, '農地面積'), 'builtup': (50, '市街地面積'), 'grassland': (30, '草地面積'), 'water': (80, '湖・河川などの水面積'), 'shrubland': (20, '低木地面積'), 'wetland': (90, '湿地面積')}
+COVER = {'forest': (10, '樹木被覆面積'), 'cropland': (40, '農地面積'), 'builtup': (50, '市街地面積'), 'grassland': (30, '草地面積'), 'water': (80, '湖・河川などの水面積'), 'shrubland': (20, '低木地面積'), 'wetland': (90, '湿地面積'), 'bare': (60, '裸地・岩場などの面積')}
 JAPAN = shapely.union_all([shape(f['geometry']) for f in json.loads((RAW / 'japan.geojson').read_text())['features']])
 print(f'Logical CPUs: {os.cpu_count()}, processing workers: {WORKERS}; internal BLAS threads: 1', flush=True)
 
@@ -248,7 +250,7 @@ def make_cover():
         lon, lat = results[key]
         assert 0 < lon.sum() <= covered_area
         code, name = COVER[key]
-        notes = {'shrubland': '低木が優占する土地被覆。', 'wetland': '草本の湿地。マングローブなど別分類の湿地は含みません。', 'forest': '法令上の森林面積とは異なります。', 'cropland': '土地被覆分類による農地です。', 'builtup': '建物などの人工被覆。行政上の市街地・都市区域とは異なります。', 'grassland': '自然草地・牧草地などの草本被覆。農地分類とは別です。', 'water': '年の大半を水が覆う湖・貯水池・河川など。日本境界内のみで海洋は対象外。'}
+        notes = {'bare': '土・砂・岩などの裸地および植生の非常に少ない土地。砂浜や山岳の岩場等を含みます。', 'shrubland': '低木が優占する土地被覆。', 'wetland': '草本の湿地。マングローブなど別分類の湿地は含みません。', 'forest': '法令上の森林面積とは異なります。', 'cropland': '土地被覆分類による農地です。', 'builtup': '建物などの人工被覆。行政上の市街地・都市区域とは異なります。', 'grassland': '自然草地・牧草地などの草本被覆。農地分類とは別です。', 'water': '年の大半を水が覆う湖・貯水池・河川など。日本境界内のみで海洋は対象外。'}
         metadata = {'name': name, 'dataset': 'ESA WorldCover 2021 v200', 'year': 2021,
                     'resolution': '10 m (1/12000°)', 'provider': 'ESA WorldCover consortium', 'license': 'CC BY 4.0', 'unit': 'm²',
                     'url': 'https://esa-worldcover.org/en/data-access',
@@ -333,8 +335,55 @@ def make_ocean():
     save_metric('ocean', 'world', axes[0], weights[0], axes[1], weights[1], metadata,
                 {'sphere_area': 4 * math.pi * RADIUS ** 2, 'land_area': land['total'], 'includes_inland_water': True})
 
+def make_built():
+    archive = RAW / 'built_world.zip'
+    with zipfile.ZipFile(archive) as package:
+        names = [name for name in package.namelist() if name.lower().endswith('.tif')]
+        assert len(names) == 1
+        path = RAW / 'built_world.tif'
+        if not path.exists():
+            temporary = path.with_suffix('.tif.part')
+            with package.open(names[0]) as source, temporary.open('wb') as output:
+                shutil.copyfileobj(source, output, 1024*1024)
+            assert temporary.stat().st_size == package.getinfo(names[0]).file_size
+            temporary.replace(path)
+    with rasterio.open(path) as source:
+        width, height, transform = source.width, source.height, source.transform
+        assert source.crs.to_epsg() == 4326 and transform.a > 0 and transform.e < 0
+        print('Built surface raster', width, height, source.dtypes, source.nodata, flush=True)
+    cols = [max(0, min(width, round((lon-transform.c)/transform.a))) for lon in [-90,0,90]]
+    def aggregate(row):
+        count = min(128, height-row)
+        with rasterio.open(path) as source:
+            values = source.read(1, window=Window(0,row,width,count), masked=True).filled(0).astype(np.float64)
+        values[~np.isfinite(values) | (values < 0)] = 0
+        return row, values.sum(0), values.sum(1), values.sum(), [values[:,:col].sum() for col in cols]
+    lon, lat, direct = np.zeros(width), np.zeros(height), np.zeros(len(cols))
+    total = 0.
+    with rasterio.Env(GDAL_CACHEMAX=64*1024*1024):
+        with concurrent.futures.ThreadPoolExecutor(WORKERS) as pool:
+            for row, x, y, area, checks in pool.map(aggregate, range(0,height,128)):
+                lon += x; lat[row:row+len(y)] = y; total += area; direct += checks
+    assert 0 < total < 1.5e14 and math.isclose(total, lon.sum(), rel_tol=1e-12)
+    cumulative = np.r_[0.,np.cumsum(lon)]
+    assert np.allclose(cumulative[cols], direct, rtol=1e-10, atol=1)
+    edges = transform.c+np.arange(width+1)*transform.a
+    canonical = np.linspace(-180, 180, 43201)
+    wrapped = sum(np.interp(canonical+offset, edges, cumulative) for offset in [-360, 0, 360])
+    adjusted = np.diff(wrapped)
+    assert adjusted.min() >= 0 and math.isclose(adjusted.sum(), total, rel_tol=1e-12)
+    save_metric('building', 'world', canonical, adjusted,
+                (transform.f+np.arange(height+1)*transform.e)[::-1], lat[::-1],
+                {'name': '建物が覆う面積', 'dataset': 'GHS-BUILT-S R2023A', 'year': 2020,
+                 'resolution': '30 arc-seconds (~1 km)', 'provider': 'European Commission Joint Research Centre / Pesaresi & Politis (2023)',
+                 'license': 'CC BY 4.0', 'unit': 'm²', 'url': 'https://human-settlement.emergency.copernicus.eu/ghs_buS2023.php',
+                 'sha256': file_hash(archive), 'method': '2020年の各セルのbuilt-up surface（m²）を全量合計。NoDataを除外し面積を再乗算しない。元の経度格子の微小なずれを帯内一様の面積配分で正規30秒帯へ保存的に移し、日付変更線の外側は反対側へ折り返す。',
+                 'note': '衛星観測と時間補間に基づく2020年推計。建物の地表被覆面積で、延べ床面積や行政上の市街地面積ではありません。'},
+                {'source_grid_total': float(total), 'wrapped_total': float(adjusted.sum()), 'source_width': width, 'source_height': height,
+                 'cuts': [{'longitude': float(transform.c+col*transform.a), 'raw_west_total': float(value), 'cdf_west_total': float(cumulative[col])} for col,value in zip(cols,direct)]})
+
 def make_bundle():
-    datasets = [json.loads(path.read_text(encoding='utf-8')) for path in sorted(OUT.glob('*.json')) if path.stem.startswith(tuple(key + '_' for key in [*COVER, 'population', 'rainfall', 'land', 'ocean', 'rainwarm', 'raincold']))]
+    datasets = [json.loads(path.read_text(encoding='utf-8')) for path in sorted(OUT.glob('*.json')) if path.stem.startswith(tuple(key + '_' for key in [*COVER, 'population', 'rainfall', 'land', 'ocean', 'rainperiod', 'building']))]
     for data in datasets:
         for name in ['longitude', 'latitude']:
             axis = data[name]
@@ -366,10 +415,19 @@ if args.stage in ['land', 'all']:
 if args.stage in ['ocean', 'all']:
     make_ocean()
 if args.stage in ['seasons', 'all']:
-    make_seasons([('rainwarm', [6, 7, 8], '6〜8月'), ('raincold', [1, 2, 12], '1・2・12月')])
+    periods = []
+    for length in [1, 3, 6]:
+        for start in range(1, 13, length):
+            months = list(range(start, start + length))
+            label = f'{start}月' if length == 1 else f'{start}〜{months[-1]}月'
+            periods.append((f'rainperiod_{length:02}_{start:02}', months, label))
+    make_seasons(periods)
 if args.stage in ['population', 'all']:
     for region in (['world', 'japan'] if args.region == 'all' else [args.region]):
         make_population(region)
+if args.stage in ['built', 'all']:
+    make_built()
 if args.stage in ['bundle', 'all']:
     make_bundle()
+
 
