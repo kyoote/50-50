@@ -274,6 +274,7 @@
     const avgStars = state.results.reduce((sum, r) => sum + r.stars, 0) / 5;
     const finalRating = Math.round(avgStars);
     $('final-score').textContent = score.toLocaleString('ja-JP');
+    window.dispatchEvent(new CustomEvent('game-finished', {detail: {mode: state.mode, score}}));
     $('final-stars').innerHTML = starsMarkup(finalRating);
     $('final-stars').setAttribute('aria-label', `最終評価10つ星中${finalRating}つ星`);
     $('average-error').textContent = `${avgError.toFixed(2)} pt`;

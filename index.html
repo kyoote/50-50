@@ -10,6 +10,7 @@
   <script defer src="data/bundle.js"></script>
   <script defer src="game.js"></script>
   <script defer src="globe.js"></script>
+  <script defer src="ranking.js"></script>
 </head>
 <body>
   <header class="header">
@@ -20,6 +21,7 @@
     <section id="home-screen" class="screen">
       <div id="hero-map" class="hero-map"><canvas id="globe" tabindex="0" role="img" aria-label="地球。ドラッグまたは矢印キーで視点を移動できます。"></canvas><button id="orbit-toggle" class="text-button" aria-label="地球の自動周回を停止" aria-pressed="false">Ⅱ</button></div>
       <div class="start-panel"><h1 class="title-logo">50<span>:</span>50</h1><div class="mode-picker" role="group" aria-label="出題エリア"><button data-mode="japan" aria-pressed="false">日本</button><button data-mode="world" aria-pressed="false">世界</button><button data-mode="random" class="selected" aria-pressed="true">ランダム</button></div><button id="start-button" class="primary">はじめる <span>→</span></button><p class="session-note">全5問</p><p id="pool-note" class="pool-note"></p></div>
+      <aside class="ranking-panel" aria-labelledby="ranking-title"><div class="ranking-heading"><h2 id="ranking-title">ランキング</h2><span id="ranking-mode">ランダム</span></div><p class="ranking-caption">上位10件 · 自己ベスト</p><p id="ranking-status" role="status">準備中</p><ol id="ranking-list"></ol><button id="ranking-refresh" class="text-button" type="button">更新</button></aside>
     </section>
     <section id="game-screen" class="screen" hidden>
       <div class="round-top"><div class="round-count"><strong id="round-number">01</strong><span>/ 05</span></div><ol id="progress" class="progress" aria-label="ラウンド進捗"></ol><div class="running-score"><span>合計</span><strong id="running-score">0</strong><small>点</small></div></div>
@@ -29,7 +31,7 @@
       <section id="round-result" class="round-result" aria-live="polite" hidden><div class="ratio-block"><p id="result-label" class="eyebrow"></p><div id="result-ratio" class="result-ratio"></div><div class="ratio-bar"><span id="ratio-fill"></span><i></i></div><div class="ratio-labels"><span id="first-side"></span><span id="second-side"></span></div></div><div class="round-stats"><div><span>ERROR</span><strong id="result-error"></strong><small>ポイント差</small></div><div><span>SCORE</span><strong id="result-score"></strong><small>/ 1,000 pts</small></div><div class="star-block"><span id="result-stars" class="stars"></span><small id="result-star-count"></small></div></div><button id="next-button" class="primary">次の問題へ <span>→</span></button><p id="line-summary" class="line-summary"></p></section>
       <p id="question-source" class="question-source"></p>
     </section>
-    <section id="final-screen" class="screen final-screen" hidden><h1>結果</h1><div class="final-score"><span>合計</span><strong id="final-score"></strong><small>/ 5,000</small></div><div id="final-stars" class="stars"></div><div class="final-metrics"><div><span>平均誤差</span><strong id="average-error"></strong></div><div><span>平均 ★</span><strong id="average-stars"></strong></div><div><span>最終評価</span><strong id="final-rating"></strong></div></div><div id="round-history" class="round-history"></div><div class="final-actions"><button id="replay-button" class="primary">もう一度 <span>→</span></button><button id="choose-button" class="secondary">エリアを選び直す</button></div></section>
+    <section id="final-screen" class="screen final-screen" hidden><h1>結果</h1><div class="final-score"><span>合計</span><strong id="final-score"></strong><small>/ 5,000</small></div><div id="final-stars" class="stars"></div><div class="final-metrics"><div><span>平均誤差</span><strong id="average-error"></strong></div><div><span>平均 ★</span><strong id="average-stars"></strong></div><div><span>最終評価</span><strong id="final-rating"></strong></div></div><div id="round-history" class="round-history"></div><form id="ranking-form" class="ranking-form"><label for="ranking-name">ランキングに登録</label><div><input id="ranking-name" maxlength="20" required placeholder="ニックネーム" autocomplete="nickname"><button class="secondary" id="ranking-submit">登録</button></div><p id="ranking-save-status" role="status"></p></form><div class="final-actions"><button id="replay-button" class="primary">もう一度 <span>→</span></button><button id="choose-button" class="secondary">エリアを選び直す</button></div></section>
     <div id="load-error" class="load-error" hidden><h1>データを読み込めませんでした</h1><p>フォルダー全体を展開し、data/bundle.js がある状態で index.html を開いてください。</p></div>
   </main>
   <dialog id="info-dialog"><div class="dialog-top"><span id="dialog-title" class="eyebrow"></span><button id="close-dialog" class="close-button" aria-label="閉じる">×</button></div><div id="dialog-content"></div></dialog>
