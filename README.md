@@ -83,7 +83,7 @@ node test_game.cjs
 
 ## URLで公開する場合
 
-静的サイトとして公開できます。配信に必要なのは `index.html`、`style.css`、`game.js`、`globe.js`、`data/bundle.js` です。出典の説明用にこのREADME、DATA_SOURCES.md、validation.jsonも同梱できます。Python、元GeoTIFF、work/は公開不要です。静的ホスティングに配置すれば、そのURLで同じゲームを利用できます。この版では外部公開していません。
+静的サイトとして公開できます。配信に必要なのは `index.html`、`style.css`、`game.js`、`globe.js`、`data/bundle.js` です。出典の説明用にこのREADME、DATA_SOURCES.md、validation.jsonも同梱できます。Python、元GeoTIFF、work/は公開不要です。静的ホスティングに配置すれば、そのURLで同じゲームを利用できます。公開URL：https://kyoote.github.io/50-50/
 
 公開用の `50-50-web.zip` は、展開した直下にindex.htmlがある構成です。ZIPを展開し、その中身を静的ホスティングの公開フォルダーへ配置します。ビルド処理・APIキー・サーバー処理は不要です。ローカルでは展開後のindex.htmlをブラウザーで開いて遊べます。
 
@@ -94,3 +94,4 @@ node test_game.cjs
 
 追加データ：世界の建物が覆う面積は[JRC GHS-BUILT-S R2023A](https://human-settlement.emergency.copernicus.eu/ghs_buS2023.php)、2020年、30秒（約1km）、CC BY 4.0。Pesaresi & Politis (2023)、DOI:10.2905/9F06F36F-4B11-47EC-ABB0-4F8B7B1D72EA。各セルのm²をそのまま合計し、延べ床面積とは区別します。日本の裸地・岩場はESA WorldCover class 60（植生が非常に少ない土地を含む）です。
 建物被覆の元経度格子は日付変更線からわずかにずれています。総面積を保存し、帯内一様の面積配分で正規の30秒帯へ移します。±180°の外側部分は反対側へ折り返します。変換前後の総量一致を検証します。
+
